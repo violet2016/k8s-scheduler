@@ -87,13 +87,13 @@ func SchedulePods(w watch.Interface, stopCh <-chan struct{}) {
 	for {
 		select {
 		case event := <-w.ResultChan():
-			log.Println(event)
 			if event.Type == watch.Added {
-				log.Println("ADDED")
+				schedule()
 			}
 		case <-stopCh:
 			w.Stop()
 			log.Println("stop watching")
+			os.Exit(0)
 		}
 	}
 }
