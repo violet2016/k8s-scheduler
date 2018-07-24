@@ -1,16 +1,22 @@
 package hawq
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
+	clientset "github.com/Pivotal-DataFabric/hawq-misc/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
+
+var cs *kubernetes.Clientset
+var config *restclient.Config
 
 // StartScheduler start hawq scheduler
 func StartScheduler(stopCh <-chan struct{}) error {
@@ -18,9 +24,9 @@ func StartScheduler(stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	cs, err := kubernetes.NewForConfig(config)
+	cs, err = kubernetes.NewForConfig(config)
 
-	watch, err := cs.CoreV1().Pods("").Watch(metav1.ListOptions{})
+	watch, err := cs.CoreV1().Pods("").Watch(metav1.ListOptions{FieldSelector: "spec.nodeName="})
 	if err != nil {
 		return err
 	}
@@ -29,7 +35,7 @@ func StartScheduler(stopCh <-chan struct{}) error {
 }
 
 // GetClusterConfig from the env KUBECONFIG, default path ~/.kube/config
-func GetClusterConfig() (*rest.Config, error) {
+func GetClusterConfig() (*restclient.Config, error) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if len(kubeconfig) == 0 {
 		// use the current context in kubeconfig
@@ -39,11 +45,41 @@ func GetClusterConfig() (*rest.Config, error) {
 		}
 	}
 	log.Println("kubeconfig is", kubeconfig)
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	var err error
+	config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err == nil {
 		return config, err
 	}
-	return rest.InClusterConfig()
+	return restclient.InClusterConfig()
+}
+
+func schedule() error {
+	// nodesList, err := cs.CoreV1().Nodes().List(metav1.ListOptions{})
+	// if err != nil {
+	// 	return err
+	// }
+
+	// Get all hawqclusters
+	hawqclusterClient, err := clientset.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("Error building hawqcluster clientset: %s", err.Error())
+	}
+	hawqclusters, err := hawqclusterClient.PivotaldataV1alpha1().HAWQClusters("").List(metav1.ListOptions{})
+	if err != nil || hawqclusters == nil {
+		log.Println("not found any hawqcluster")
+	}
+
+	// Select all the pods belong to the hawq clusters
+	var names []string
+	for _, cluster := range hawqclusters.Items {
+		names = append(names, cluster.GetClusterName())
+	}
+	selector := fmt.Sprintf("app in (%s),role in (master, standby)", strings.Join(names, ","))
+	podList, err := cs.CoreV1().Pods("").List(metav1.ListOptions{LabelSelector: selector})
+	for _, p := range podList.Items {
+		log.Println("pod name is", p.Name)
+	}
+	return nil
 }
 
 // SchedulePods will schedule the newly added pod
