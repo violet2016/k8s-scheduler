@@ -1,1 +1,5 @@
 hawq-scheduler/hawq-scheduler
+hawq-scheduler-extender/hawq-scheduler-extender
+hawq-scheduler-extender/hack/docker/hawq-scheduler-extender
+vendor/
+.vscode/

@@ -1,0 +1,2 @@
+FROM ubuntu:latest
+ADD hawq-scheduler-extender /

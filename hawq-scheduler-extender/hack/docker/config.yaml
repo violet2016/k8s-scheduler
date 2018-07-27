@@ -1,0 +1,12 @@
+apiVersion: componentconfig/v1alpha1
+kind: KubeSchedulerConfiguration
+metadata:
+  name: hawq-scheduler
+  namespace: kube-system
+algorithmSource:
+  policy:
+    file:
+      path: /opt/policy.json
+leaderElection:
+  leaderElect: false
+schedulerName: hawq-scheduler

@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hawq-scheduler
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hawq-scheduler-as-kube-scheduler
+subjects:
+- kind: ServiceAccount
+  name: hawq-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin #system:kube-scheduler cannot get storage class
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    component: scheduler
+    tier: control-plane
+  name: hawq-scheduler
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      component: scheduler
+      tier: control-plane
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        component: scheduler
+        tier: control-plane
+        version: second
+    spec:
+      serviceAccountName: hawq-scheduler
+      containers:
+      - command:
+        - /kube-scheduler-hawq
+        - --config=/opt/config.yaml
+        image: hanacolor/hawq-kube-scheduler:1.0
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10251
+          initialDelaySeconds: 15
+        name: kube-hawq-scheduler
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10251
+        resources:
+          requests:
+            cpu: '0.1'
+        securityContext:
+          privileged: false
+        volumeMounts: []
+      - command:
+        - /hawq-scheduler-extender
+        image: hanacolor/hawq-kube-scheduler-extender:1.0
+        imagePullPolicy: Always
+        name: hawq-scheduler-extender
+      hostNetwork: false
+      hostPID: false
+      volumes: []
