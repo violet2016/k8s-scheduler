@@ -21,7 +21,10 @@ roleRef:
   name: kube-scheduler # should be system:kube-scheduler
   apiGroup: rbac.authorization.k8s.io
 ```
-The name of roleRef should be system:kube-scheduler in 1.11. Otherwise it will report an error that kube-scheduler does not exist.
+
+
+Notice: 
+The name of roleRef should be system:kube-scheduler in 1.11. Otherwise it will report an error that kube-scheduler does not exist.
 
 And, even you change it to system:kube-scheduler, it still doesn't have privilege to obtail storageclass, with is needed in scheduler. Change it to **cluster-admin** will fix this but may have security issue.
 
